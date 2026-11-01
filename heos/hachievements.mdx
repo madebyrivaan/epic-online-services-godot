@@ -56,7 +56,7 @@ Queries the current player's achievement progress and returns an array of `HAchi
 var all := await HAchievements.get_all_achievements_async()
 var player := await HAchievements.get_player_achievements_async()
 for a in player:
-    print("%s — progress: %.0f%% — unlocked: %s" % [
+    print("%s | progress: %.0f%% | unlocked: %s" % [
         a.achievement_id, a.progress * 100.0, a.is_unlocked()
     ])
 ```
@@ -211,7 +211,7 @@ func _on_achievement_unlocked(data: Dictionary) -> void:
 
 func _rebuild_ui() -> void:
     for a in achievements.values():
-        print("%s — %s — unlocked: %s" % [
+        print("%s | %s | unlocked: %s" % [
             a.achievement_id, a.get_display_name(), a.is_unlocked()
         ])
 ```

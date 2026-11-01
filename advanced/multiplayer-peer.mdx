@@ -1,1 +1,114 @@
+---
+title: "EOSGMultiplayerPeer"
+description: "Godot MultiplayerPeer implementation using Epic Online Services P2P networking."
+sidebarTitle: "MultiplayerPeer"
+---
 
+`EOSGMultiplayerPeer` is a custom `MultiplayerPeer` implementation that routes Godot's high-level multiplayer API over Epic Online Services P2P sockets. It lets you host or join networked games through EOS without writing low-level packet code.
+
+Before using this class, make sure the EOS platform is initialized and the local user is logged in. The peer relies on the P2P interface, so you will also need a valid socket name string. For background on P2P and lobby matchmaking, see [P2P networking](/heos/hp2p) and [Lobbies](/heos/hlobbies).
+
+## Creating a peer
+
+Instantiate `EOSGMultiplayerPeer` like any other Godot node resource. You only need one instance per game instance.
+
+```gdscript
+var peer = EOSGMultiplayerPeer.new()
+```
+
+## Topology methods
+
+These methods configure the peer for a specific network role. Each returns an `Error` code.
+
+| Method | Description |
+| --- | --- |
+| `create_server(socket_id: String) -> Error` | Start listening on the given socket as a server. |
+| `create_client(socket_id: String, remote_user_id: String) -> Error` | Connect to a remote server identified by its product user id. |
+| `create_mesh(socket_id: String) -> Error` | Create a mesh topology where every peer talks directly to every other peer. |
+| `add_mesh_peer(remote_user_id: String) -> Error` | Add a remote peer to an existing mesh. |
+
+## Connection request helpers
+
+By default the peer automatically accepts incoming connection requests. You can disable this and handle requests manually.
+
+| Method | Description |
+| --- | --- |
+| `set_auto_accept_connection_requests(enable: bool)` | Toggle automatic acceptance of incoming requests. |
+| `is_auto_accepting_connection_requests() -> bool` | Check whether auto-accept is enabled. |
+| `accept_connection_request(remote_user_id: String)` | Manually accept a pending request. |
+| `deny_connection_request(remote_user_id: String)` | Manually deny a pending request. |
+| `accept_all_connection_requests()` | Accept every pending request at once. |
+| `deny_all_connection_requests()` | Deny every pending request at once. |
+| `get_all_connection_requests() -> Array` | Return the list of pending requests. |
+
+## Peer inspection
+
+| Method | Description |
+| --- | --- |
+| `get_all_peers() -> Dictionary` | Return all connected peers as a dictionary. |
+| `has_peer(peer_id: int) -> bool` | Check whether a Godot peer id is connected. |
+| `has_user_id(remote_user_id: String) -> bool` | Check whether a given EOS product user id is connected. |
+| `get_peer_user_id(peer_id: int) -> String` | Get the EOS product user id for a Godot peer id. |
+| `get_peer_id(remote_user_id: String) -> int` | Get the Godot peer id for an EOS product user id. |
+| `get_socket() -> String` | Return the socket name this peer is using. |
+| `get_active_mode() -> int` | Return the current active mode. |
+| `get_local_user_id() -> String` | Static method that returns the local user's product user id. |
+
+## Delivery and polling
+
+| Method | Description |
+| --- | --- |
+| `set_allow_delayed_delivery(allow: bool)` | Allow the peer to delay packet delivery when needed. |
+| `is_allowing_delayed_delivery() -> bool` | Check the delayed delivery setting. |
+| `set_is_polling(polling: bool)` | Enable or disable internal polling. |
+| `is_polling() -> bool` | Check whether internal polling is active. |
+
+## Signals
+
+| Signal | Description |
+| --- | --- |
+| `peer_connection_established(callback_data: Dictionary)` | Fired when a new peer connection is ready. |
+| `peer_connection_interrupted(callback_data: Dictionary)` | Fired when an existing peer connection is interrupted. |
+| `peer_connection_closed(callback_data: Dictionary)` | Fired when a peer connection is fully closed. |
+| `incoming_connection_request(callback_data: Dictionary)` | Fired when a remote peer requests a connection. |
+
+## Host and join example
+
+The following snippet shows a minimal host and join flow adapted from the sample project. It assumes you already have a socket name stored somewhere such as `Store.GAME_SOCKET_NAME` and that you know the remote host's product user id when joining.
+
+```gdscript
+class_name MyNetwork
+extends Node2D
+
+var peer = EOSGMultiplayerPeer.new()
+
+func create_server():
+    print("Creating server...")
+    peer.create_server(Store.GAME_SOCKET_NAME)
+    peer.peer_connected.connect(_on_peer_connected)
+    peer.peer_disconnected.connect(_on_peer_disconnected)
+    multiplayer.multiplayer_peer = peer
+
+func join_game(remote_puid: String):
+    print("Joining game: remote_puid=%s" % remote_puid)
+    peer.create_client(Store.GAME_SOCKET_NAME, remote_puid)
+    peer.peer_disconnected.connect(_on_peer_disconnected)
+    multiplayer.multiplayer_peer = peer
+
+func _on_peer_connected(peer_id: int):
+    var puid = peer.get_peer_user_id(peer_id)
+    print("Peer connected: peer_id=%s, puid=%s" % [peer_id, puid])
+
+func _on_peer_disconnected(peer_id: int):
+    if multiplayer.is_server():
+        print("Client disconnected: %s" % peer_id)
+    else:
+        print("Server disconnected")
+        multiplayer.multiplayer_peer = null
+```
+
+After assigning `multiplayer.multiplayer_peer`, you can use Godot's built-in RPC system, `MultiplayerSpawner`, and `MultiplayerSynchronizer` as usual. The peer translates Godot's multiplayer packets into EOS P2P packets behind the scenes.
+
+## External demo
+
+For a complete working example that demonstrates P2P connections through a lobby and in-game networking, see the [EOSGP2PInterfaceTestGame](https://github.com/3ddelano/EOSGP2PInterfaceTestGame) repository by 3ddelano. It shows lobby creation, joining, and transferring multiplayer authority using `EOSGMultiplayerPeer`.

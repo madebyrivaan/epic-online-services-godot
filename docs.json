@@ -74,10 +74,10 @@
           "heos/hleaderboards",
           "heos/hfriends",
           "heos/hlobbies",
-          "heos/hsessions",
-          "heos/hp2p",
           "heos/hlobby",
-          "heos/hlobbymember"
+          "heos/hlobbymember",
+          "heos/hsessions",
+          "heos/hp2p"
         ]
       },
       {

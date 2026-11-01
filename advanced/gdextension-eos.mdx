@@ -1,1 +1,134 @@
+---
+title: "GDExtension EOS"
+description: "Learn how the low-level EOS class and IEOS singleton expose the Epic Online Services C SDK inside Godot."
+sidebarTitle: "GDExtension EOS"
+---
 
+The plugin exposes Epic Online Services through two core pieces: the `EOS` helper class and the `IEOS` singleton. `EOS` is a GDScript `RefCounted` class that organizes every SDK interface into nested namespaces, provides option classes, and adds helper functions for results. `IEOS` is the C++ singleton that actually calls the native SDK and emits callback signals. You will usually call a method on `EOS.SomeInterface` and then `await` the matching signal on `IEOS`.
+
+If you are new to the plugin, start with [High Level EOS](/heos/overview) which wraps these calls into simpler async functions.
+
+## The EOS class
+
+`EOS` lives at `res://addons/epic-online-services-godot/eos.gd`. It is a static namespace with no instance of its own. Inside it you will find one nested class per Epic Online Services interface, such as `EOS.Auth`, `EOS.P2P`, `EOS.Sessions`, and `EOS.Connect`. Each of those nested classes contains:
+
+- An `*Interface` inner class that forwards calls to `IEOS` (for example `EOS.P2P.P2PInterface`).
+- Option classes that extend `BaseClass` (for example `EOS.P2P.SetPortRangeOptions`).
+- Enums and constants used by that interface.
+
+### Helper functions
+
+`EOS` also provides static helpers so you do not have to unpack result dictionaries by hand:
+
+| Function | Purpose |
+| --- | --- |
+| `EOS.get_instance()` | Returns the `IEOS` singleton. |
+| `EOS.is_success(result)` | Returns `true` when the result code is `EOS.Result.Success`. Accepts a raw `Result` or a `Dictionary` with a `result_code` key. |
+| `EOS.is_operation_complete(result)` | Returns `true` when the operation is finished. |
+| `EOS.result_str(result)` | Returns the string name of a `Result` code. |
+| `EOS.print_result(result)` | Pretty-prints the result code and its string name. |
+
+These helpers are useful because many `IEOS` callbacks return a dictionary where `result_code` holds the `EOS.Result` value.
+
+### Option classes
+
+Most SDK calls need an options structure. In the plugin these are GDScript classes that extend `BaseClass` (which extends `Dataclass`, a small helper that prints fields for debugging). You create an option object, set its properties, and pass it to the interface method.
+
+For example, setting the P2P port range looks like this:
+
+```gdscript
+var opts = EOS.P2P.SetPortRangeOptions.new()
+opts.port = 7777
+opts.max_additional_ports_to_try = 10
+var result = EOS.P2P.P2PInterface.set_port_range(opts)
+```
+
+## The IEOS singleton
+
+`IEOS` is the C++ singleton registered by the GDExtension. It is defined in `src/ieos.cpp` and `src/ieos.h`. Every async SDK operation emits a signal on `IEOS` when the callback fires from the C SDK. The plugin binds roughly 180 signals, one per callback type. A few examples are:
+
+- `auth_interface_login_callback`
+- `connect_interface_login_callback`
+- `p2p_interface_query_nat_type_callback`
+- `sessions_interface_create_session_callback`
+- `lobby_interface_create_lobby_callback`
+
+Each signal carries a single `Dictionary` named `callback_data` (or `log_message` for the logging callback). That dictionary contains the fields documented by Epic, including `result_code`.
+
+Because the signals are Godot signals, you can connect to them with `await` inside an async function. This is the pattern you will use most often.
+
+## Call-then-await pattern
+
+The typical flow for an async operation is:
+
+1. Build an options object.
+2. Call the interface method on `EOS.*.Interface`.
+3. `await` the matching `IEOS` signal.
+4. Check the result with `EOS.is_success`.
+
+Here is a concrete example taken from the High Level P2P wrapper (`heos/hp2p.gd`). It queries the local NAT type:
+
+```gdscript
+func get_nat_type_async() -> EOS.P2P.NATType:
+    # 1. Start the query
+    EOS.P2P.P2PInterface.query_nat_type()
+
+    # 2. Wait for the callback signal
+    var ret = await IEOS.p2p_interface_query_nat_type_callback
+
+    # 3. Check success
+    if not EOS.is_success(ret):
+        push_error("Failed to get NAT type: %s" % EOS.result_str(ret))
+    else:
+        print("Got NAT type: %s" % ret.nat_type)
+
+    return ret.nat_type
+```
+
+Notice that `query_nat_type()` returns nothing immediately. The real answer arrives later through the signal. If you prefer event-driven code, you can also `connect` the signal to a regular callback function instead of using `await`.
+
+## Available interfaces
+
+The `src` directory of the GDExtension contains one C++ file per Epic Online Services interface. These files map directly to the nested classes inside `EOS`:
+
+- `achievements_interface.cpp`
+- `auth_interface.cpp`
+- `connect_interface.cpp`
+- `custom_invites_interface.cpp`
+- `ecom_interface.cpp`
+- `friends_interface.cpp`
+- `kws_interface.cpp`
+- `leaderboards_interface.cpp`
+- `lobby_interface.cpp`
+- `logging_interface.cpp`
+- `metrics_interface.cpp`
+- `mods_interface.cpp`
+- `p2p_interface.cpp`
+- `platform_interface.cpp`
+- `playerdatastorage_interface.cpp`
+- `presence_interface.cpp`
+- `progression_snapshot_interface.cpp`
+- `reports_interface.cpp`
+- `rtc_interface.cpp`, `rtc_audio_interface.cpp`, `rtc_data_interface.cpp`
+- `sanctions_interface.cpp`
+- `sessions_interface.cpp`
+- `stats_interface.cpp`
+- `titlestorage_interface.cpp`
+- `ui_interface.cpp`
+- `user_info_interface.cpp`
+- `version_interface.cpp`
+- `anticheat_client_interface.cpp`
+- `anticheat_server_interface.cpp`
+
+Each file binds the C SDK methods and registers the matching callback signals on `IEOS`. If you need functionality that is not yet exposed, the pattern in these files is the best reference for adding new bindings.
+
+## When to use the low-level API
+
+High Level EOS (`heos`) covers the most common workflows with simple async functions. Drop down to the low-level `EOS` / `IEOS` API when you need:
+
+- A feature not yet wrapped by `heos`.
+- Fine-grained control over option structures.
+- Direct access to every callback field without abstraction.
+- Custom signal handling instead of awaiting a single result.
+
+For most games, [High Level EOS](/heos/overview) will get you online faster and with less boilerplate.
