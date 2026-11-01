@@ -1,0 +1,217 @@
+---
+title: "HAchievements"
+description: "High-level autoload for querying, tracking, and unlocking Epic Online Services achievements."
+sidebarTitle: "HAchievements"
+---
+
+The `HAchievements` autoload provides a simplified Godot-friendly API over the EOS Achievements interface. It handles querying achievement definitions, fetching player progress, and unlocking achievements, while emitting a signal when an unlock occurs.
+
+## Signals
+
+### achievement_unlocked
+
+```gdscript
+signal achievement_unlocked(data: Dictionary)
+```
+
+Emitted when an achievement is unlocked. The `data` dictionary contains:
+
+<ResponseField name="achievement_id" type="String">
+  The unique identifier of the unlocked achievement.
+</ResponseField>
+
+<ResponseField name="unlock_time" type="int">
+  Unix timestamp of when the achievement was unlocked.
+</ResponseField>
+
+<ResponseField name="user_id" type="String">
+  The product user ID of the player who unlocked the achievement.
+</ResponseField>
+
+## Methods
+
+### get_all_achievements_async
+
+```gdscript
+func get_all_achievements_async() -> Array[HAchievementData]
+```
+
+Queries the EOS backend for all achievement definitions configured in the developer portal and returns them as an array of `HAchievementData`. This also populates an internal cache used when fetching player achievements.
+
+```gdscript
+var achievements := await HAchievements.get_all_achievements_async()
+for achievement in achievements:
+    print("%s: %s" % [achievement.achievement_id, achievement.get_display_name()])
+```
+
+### get_player_achievements_async
+
+```gdscript
+func get_player_achievements_async() -> Array[HAchievementData]
+```
+
+Queries the current player's achievement progress and returns an array of `HAchievementData` with `progress`, `unlock_time`, and stat thresholds filled in. Call `get_all_achievements_async` first so names and descriptions are available in the cache.
+
+```gdscript
+var all := await HAchievements.get_all_achievements_async()
+var player := await HAchievements.get_player_achievements_async()
+for a in player:
+    print("%s — progress: %.0f%% — unlocked: %s" % [
+        a.achievement_id, a.progress * 100.0, a.is_unlocked()
+    ])
+```
+
+### unlock_achievement_async
+
+```gdscript
+func unlock_achievement_async(achievement_id: String) -> bool
+```
+
+Unlocks a single achievement for the local player. Returns `true` if the request succeeded.
+
+```gdscript
+var ok := await HAchievements.unlock_achievement_async("first_kill")
+if ok:
+    print("Achievement unlocked!")
+```
+
+### unlock_achievements_async
+
+```gdscript
+func unlock_achievements_async(achievement_ids: Array) -> bool
+```
+
+Unlocks multiple achievements in a single request. Pass an array of achievement ID strings.
+
+```gdscript
+var ids := ["first_kill", "ten_kills", "sharpshooter"]
+var ok := await HAchievements.unlock_achievements_async(ids)
+```
+
+## HAchievementData
+
+`HAchievementData` is a plain data class that holds achievement metadata and player progress.
+
+### Properties
+
+<ResponseField name="achievement_id" type="String">
+  Unique identifier for the achievement.
+</ResponseField>
+
+<ResponseField name="unlocked_display_name" type="String">
+  Localized display name shown when the achievement is unlocked.
+</ResponseField>
+
+<ResponseField name="unlocked_description" type="String">
+  Localized description shown when the achievement is unlocked.
+</ResponseField>
+
+<ResponseField name="unlocked_icon_url" type="String">
+  URL of the icon to display when the achievement is unlocked. May be empty if not configured in the dev portal.
+</ResponseField>
+
+<ResponseField name="locked_display_name" type="String">
+  Localized display name shown while the achievement is still locked or hidden.
+</ResponseField>
+
+<ResponseField name="locked_description" type="String">
+  Localized description shown while the achievement is still locked or hidden.
+</ResponseField>
+
+<ResponseField name="locked_icon_url" type="String">
+  URL of the icon to display while the achievement is locked or hidden. May be empty if not configured in the dev portal.
+</ResponseField>
+
+<ResponseField name="flavor_text" type="String">
+  Optional localized text that can be used by the game in an arbitrary manner.
+</ResponseField>
+
+<ResponseField name="is_hidden" type="bool">
+  Whether the achievement is hidden from the player until unlocked.
+</ResponseField>
+
+<ResponseField name="progress" type="float">
+  Progress toward completing the achievement as a percentage (0.0 to 1.0).
+</ResponseField>
+
+<ResponseField name="unlock_time" type="int">
+  Either `EOS.Achievements.UNLOCK_TIME_UNDEFINED` if not yet unlocked, or the Unix timestamp of when it was unlocked.
+</ResponseField>
+
+<ResponseField name="stats" type="Array[Dictionary]">
+  Array of stat dictionaries, each with keys `name:String`, `current_value:int`, and `threshold_value:int`.
+</ResponseField>
+
+### Methods
+
+#### is_unlocked
+
+```gdscript
+func is_unlocked() -> bool
+```
+
+Returns `true` if the achievement has been unlocked.
+
+#### get_display_name
+
+```gdscript
+func get_display_name() -> String
+```
+
+Returns `unlocked_display_name` if unlocked, otherwise `locked_display_name`.
+
+#### get_description
+
+```gdscript
+func get_description() -> String
+```
+
+Returns `unlocked_description` if unlocked, otherwise `locked_description`.
+
+#### get_icon_url
+
+```gdscript
+func get_icon_url() -> String
+```
+
+Returns `unlocked_icon_url` if unlocked, otherwise `locked_icon_url`.
+
+## Usage example
+
+The following pattern, taken from the sample `AchievementsView`, shows how to combine definition queries, player progress, and the unlock signal into a UI:
+
+```gdscript
+extends VBoxContainer
+
+var achievements = {}
+
+func _ready() -> void:
+    HAchievements.achievement_unlocked.connect(_on_achievement_unlocked)
+    visibility_changed.connect(_get_achievements)
+
+func _get_achievements():
+    if not visible:
+        return
+
+    var all := await HAchievements.get_all_achievements_async()
+    for a in all:
+        achievements[a.achievement_id] = a
+
+    var player := await HAchievements.get_player_achievements_async()
+    for p in player:
+        if achievements.has(p.achievement_id):
+            achievements[p.achievement_id].unlock_time = p.unlock_time
+
+    _rebuild_ui()
+
+func _on_achievement_unlocked(data: Dictionary) -> void:
+    if achievements.has(data.achievement_id):
+        achievements[data.achievement_id].unlock_time = data.unlock_time
+    _rebuild_ui()
+
+func _rebuild_ui() -> void:
+    for a in achievements.values():
+        print("%s — %s — unlocked: %s" % [
+            a.achievement_id, a.get_display_name(), a.is_unlocked()
+        ])
+```

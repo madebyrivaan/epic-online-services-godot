@@ -1,0 +1,153 @@
+---
+title: "Quickstart"
+description: "Initialize Epic Online Services in Godot and log in with a minimal script using High Level EOS."
+---
+
+To start using the plugin, you need credentials from the Epic Games Developer Portal and a short initialization script. This page shows two ways to set up EOS: using the low-level option classes, or the simpler `HCredentials` helper.
+
+## Required credentials
+
+You will need the following from the EOS Developer Portal:
+
+- `PRODUCT_ID`
+- `SANDBOX_ID`
+- `DEPLOYMENT_ID`
+- `CLIENT_ID`
+- `CLIENT_SECRET`
+
+You also need to provide these values yourself:
+
+- `PRODUCT_NAME` - A name chosen by you for the project
+- `PRODUCT_VERSION` - A version chosen by you for the project
+- `ENCRYPTION_KEY` - A random 64 character long string
+
+## Option 1: Initialize with option classes
+
+Use `EOS.Platform.InitializeOptions` and `EOS.Platform.CreateOptions` directly, then call `HPlatform.initialize_async` and `HPlatform.create_platform_async`.
+
+```gdscript
+extends Node
+
+func _ready() -> void:
+	# This will control which logs you get from EOSG
+	HLog.log_level = HLog.LogLevel.INFO
+
+	var init_opts = EOS.Platform.InitializeOptions.new()
+	init_opts.product_name = "PRODUCT_NAME_HERE"
+	init_opts.product_version = "PRODUCT_VERSION_HERE"
+
+	var create_opts = EOS.Platform.CreateOptions.new()
+	create_opts.product_id = "PRODUCT_ID_HERE"
+	create_opts.sandbox_id = "SANDBOX_ID_HERE"
+	create_opts.deployment_id = "DEPLOYMENT_ID_HERE"
+	create_opts.client_id = "CLIENT_ID_HERE"
+	create_opts.client_secret = "CLIENT_SECRET_HERE"
+	create_opts.encryption_key = "ENCRYPTION_KEY_HERE"
+
+	# Enable Social Overlay on Windows
+	if OS.get_name() == "Windows":
+		HAuth.auth_login_flags = EOS.Auth.LoginFlags.None
+		create_opts.flags = EOS.Platform.PlatformFlags.WindowsEnableOverlayOpengl
+
+	# Initialize the SDK
+	var init_res := await HPlatform.initialize_async(init_opts)
+	if not EOS.is_success(init_res):
+		printerr("Failed to initialize EOS SDK: ", EOS.result_str(init_res))
+		return
+
+	# Create platform
+	var create_success := await HPlatform.create_platform_async(create_opts)
+	if not create_success:
+		printerr("Failed to create EOS Platform")
+		return
+
+	# Setup Logs from EOS
+	HPlatform.log_msg.connect(_on_eos_log_msg)
+	var log_res := HPlatform.set_eos_log_level(EOS.Logging.LogCategory.AllCategories, EOS.Logging.LogLevel.Info)
+	if not EOS.is_success(log_res):
+		printerr("Failed to set logging level")
+		return
+
+	HAuth.logged_in.connect(_on_logged_in)
+
+	# During development use the devauth tool to login
+	HAuth.login_devtool_async("localhost:4545", "CREDENTIAL_NAME_HERE")
+
+	# Login without any credentials. The same Product User ID is reused on this device
+	# await HAuth.login_anonymous_async("DISPLAY_NAME_HERE")
+
+
+func _on_logged_in():
+	print("Logged in successfully: product_user_id=%s" % HAuth.product_user_id)
+
+
+func _on_eos_log_msg(msg: EOS.Logging.LogMessage) -> void:
+	print("SDK %s | %s" % [msg.category, msg.message])
+```
+
+## Option 2: Initialize with HCredentials (simpler)
+
+`HCredentials` wraps the same values, and `HPlatform.setup_eos_async` runs initialization and platform creation in one call.
+
+```gdscript
+extends Node
+
+func _ready() -> void:
+	# Setup HEOS Logs
+	HLog.log_level = HLog.LogLevel.INFO
+
+	var credentials = HCredentials.new()
+	credentials.product_name = "PRODUCT_NAME_HERE"
+	credentials.product_version = "PRODUCT_VERSION_HERE"
+	credentials.product_id = "PRODUCT_ID_HERE"
+	credentials.sandbox_id = "SANDBOX_ID_HERE"
+	credentials.deployment_id = "DEPLOYMENT_ID_HERE"
+	credentials.client_id = "CLIENT_ID_HERE"
+	credentials.client_secret = "CLIENT_SECRET_HERE"
+	# optional
+	# credentials.encryption_key = "ENCRYPTION_KEY_HERE"
+
+	var setup_success := await HPlatform.setup_eos_async(credentials)
+	if not setup_success:
+		printerr("Failed to setup EOS. See logs for more details")
+		return
+
+	# Setup Logs from EOS
+	HPlatform.log_msg.connect(_on_eos_log_msg)
+	var log_res := HPlatform.set_eos_log_level(EOS.Logging.LogCategory.AllCategories, EOS.Logging.LogLevel.Info)
+	if not EOS.is_success(log_res):
+		printerr("Failed to set logging level")
+		return
+
+	HAuth.logged_in.connect(_on_logged_in)
+
+	# During development use the devauth tool to login
+	HAuth.login_devtool_async("localhost:4545", "CREDENTIAL_NAME_HERE")
+
+	# Or login without any credentials
+	# await HAuth.login_anonymous_async()
+
+
+func _on_logged_in():
+	print("Logged in successfully: product_user_id=%s" % HAuth.product_user_id)
+
+
+func _on_eos_log_msg(msg: EOS.Logging.LogMessage) -> void:
+	print("SDK %s | %s" % [msg.category, msg.message])
+```
+
+## Walkthrough video
+
+<iframe width="100%" height="400" src="https://www.youtube.com/embed/ENyvF4yVjKg" title="Epic Online Services Tutorial" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
+
+## Platform-specific setup
+
+Some platforms need extra one-time configuration before EOS will initialize correctly:
+
+- [Windows](/platforms/windows)
+- [Android](/platforms/android)
+- [iOS](/platforms/ios)
+
+## Next steps
+
+After EOS is initialized, choose a login flow. See [High Level EOS: HAuth](/heos/hauth) for login options such as devauth, anonymous, and account portal.

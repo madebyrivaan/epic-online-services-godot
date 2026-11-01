@@ -1,0 +1,35 @@
+---
+title: "Windows"
+description: "Initialize Epic Online Services on Windows, including bootstrapping the executable and enabling the Social Overlay."
+---
+
+On Windows, Epic Online Services works out of the box for most features, but the Account Portal login and the Social Overlay require extra setup.
+
+## Bootstrapping the Godot executable
+
+If you want to use the **Account Portal** login option in Epic Online Services, you need to bootstrap the Godot or game executable as required by EOS SDK 1.15 and later. See the [Redistributable Installer](https://dev.epicgames.com/docs/services/en-US/EpicAccountServices/Crossplayacrossplatforms/RedistributableInstaller/index.html) documentation for full details.
+
+A sample of the generated `.ini` file for the Godot Editor during development is shown below:
+
+```ini
+ApplicationPath=Godot_v4.2.0-stable_win64.exe
+WorkingDirectory=
+WaitForExit=0
+NoOperation=0
+```
+
+Follow the instructions in [Running the service for local development](https://dev.epicgames.com/docs/services/en-US/EpicAccountServices/Crossplayacrossplatforms/RedistributableInstaller/index.html#runningtheserviceforlocaldevelopment) and bootstrap the correct executable:
+
+- During game development, bootstrap the Godot Editor executable (for example, `Godot_v4.2.0-stable_win64.exe`).
+- After exporting the game, bootstrap the exported game executable (for example, `My Amazing Game.exe`).
+
+## Enabling the Social Overlay
+
+To enable the Social Overlay on Windows, set the platform creation flag before creating the platform:
+
+```gdscript
+if OS.get_name() == "Windows":
+	create_opts.flags = EOS.Platform.PlatformFlags.WindowsEnableOverlayOpengl
+```
+
+If you are using the High Level EOS helper, `HPlatform.setup_eos_async` automatically applies `WindowsEnableOverlayOpengl` on Windows when no custom `flags` are set. You can also set `HAuth.auth_login_flags = EOS.Auth.LoginFlags.None` if you want to keep the default auth behavior.

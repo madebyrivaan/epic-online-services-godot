@@ -1,0 +1,257 @@
+---
+title: "HSessions"
+description: "High-level autoload for Epic Online Services Sessions in the EOSG plugin."
+sidebarTitle: "HSessions"
+---
+
+`HSessions` is a Godot autoload singleton that wraps the EOS Sessions interface with simplified async helpers. Use it to create, update, join, and search game sessions without managing every low-level callback manually.
+
+<Note>
+  Before using `HSessions`, initialize the EOS platform with [HPlatform](/heos/hplatform) and log in with [HAuth](/heos/hauth).
+</Note>
+
+## Public properties
+
+<ResponseField name="max_search_results" type="int">
+  Maximum number of session search results to return. Defaults to `25`.
+</ResponseField>
+
+## Public methods
+
+### create_session
+
+```gdscript
+func create_session(opts: EOS.Sessions.CreateSessionModificationOptions) -> EOSGSessionModification
+```
+
+Creates a session modification handle from the given options. Returns an `EOSGSessionModification` on success, or `null` on failure.
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var opts = EOS.Sessions.CreateSessionModificationOptions.new()
+    opts.bucket_id = "party-bucket"
+    opts.max_players = 4
+    opts.session_name = "Party"
+    
+    var session := HSessions.create_session(opts)
+    if not session:
+        return
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### update_session_async
+
+```gdscript
+func update_session_async(p_session: EOSGSessionModification) -> bool
+```
+
+Commits a session modification to EOS and waits for the result. Returns `true` if the session was updated successfully.
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    session.add_attribute("level", "margao", EOS.Sessions.SessionAttributeAdvertisementType.Advertise)
+    session.set_permission_level(EOS.Sessions.OnlineSessionPermissionLevel.PublicAdvertised)
+    session.set_host_address("localhost:5412")
+    
+    var success := await HSessions.update_session_async(session)
+    if not success:
+        return
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### get_active_session
+
+```gdscript
+func get_active_session(p_session_name: String) -> EOSGActiveSession
+```
+
+Retrieves the active session handle for the given session name. Returns `null` if the copy fails.
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var active := HSessions.get_active_session("Party")
+    if active:
+        print(active.copy_info())
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### join_async
+
+```gdscript
+func join_async(session: EOSGSessionDetails, session_name: String, presence_enabled = false) -> bool
+```
+
+Joins an existing session using the provided session details. Returns `true` on success.
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var sessions = await HSessions.search_by_attribute_async({key = "level", value = "margao"})
+    if sessions and sessions.size() > 0:
+        var details: EOSGSessionDetails = sessions[-1]
+        var joined := await HSessions.join_async(details, "Party")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### search_by_attribute_async
+
+```gdscript
+func search_by_attribute_async(attributes) -> Array
+```
+
+Searches for sessions that match the given attribute filters. `attributes` can be a single dictionary or an array of dictionaries. Each dictionary must contain `key`, `value`, and optionally `comparison`. When `comparison` is omitted, `EOS.ComparisonOp.Equal` is used. Returns an array of `EOSGSessionDetails` on success, or `null` on failure.
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var sessions = await HSessions.search_by_attribute_async({
+        key = "level",
+        value = "margao",
+        comparison = EOS.ComparisonOp.Equal
+    })
+    if sessions:
+        for s in sessions:
+            print(s.copy_info().info)
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### create_search
+
+```gdscript
+func create_search(opts: EOS.Sessions.CreateSessionSearchOptions) -> EOSGSessionSearch
+```
+
+Creates a session search handle with the specified options. Returns `null` on failure.
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var opts = EOS.Sessions.CreateSessionSearchOptions.new()
+    opts.max_search_results = HSessions.max_search_results
+    var search := HSessions.create_search(opts)
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### search_async
+
+```gdscript
+func search_async(session_search: EOSGSessionSearch) -> Array
+```
+
+Executes a session search and returns the results as an array of `EOSGSessionDetails`. Returns `null` on failure.
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    search.set_parameter("level", "margao", EOS.ComparisonOp.Equal)
+    var results := await HSessions.search_async(search)
+    if results:
+        for r in results:
+            print(r.copy_info().info)
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related types
+
+### EOSGSessionModification
+
+A handle used to configure a session before it is created or updated.
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `add_attribute` | `add_attribute(key: String, value: Variant, advertisement_type: EOS.Sessions.SessionAttributeAdvertisementType) -> EOS.Result` | Adds a session attribute. Supported value types are `bool`, `int`, `float`, and `String`. |
+| `remove_attribute` | `remove_attribute(key: String) -> EOS.Result` | Removes an attribute by key. |
+| `set_allowed_platform_ids` | `set_allowed_platform_ids(allowed_platform_ids: Array[int]) -> EOS.Result` | Restricts the session to the given platform IDs. |
+| `set_bucket_id` | `set_bucket_id(bucket_id: String) -> EOS.Result` | Sets the session bucket ID. |
+| `set_host_address` | `set_host_address(host_address: String) -> EOS.Result` | Sets the host address string. |
+| `set_invites_allowed` | `set_invites_allowed(invites_allowed: bool) -> EOS.Result` | Enables or disables invites. |
+| `set_join_in_progress_allowed` | `set_join_in_progress_allowed(join_in_progress_allowed: bool) -> EOS.Result` | Allows players to join while the session is in progress. |
+| `set_max_players` | `set_max_players(max_players: int) -> EOS.Result` | Sets the maximum player count. |
+| `set_permission_level` | `set_permission_level(permission_level: EOS.Sessions.OnlineSessionPermissionLevel) -> EOS.Result` | Sets the session permission level. |
+
+### EOSGSessionSearch
+
+A handle for querying available sessions.
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `set_parameter` | `set_parameter(key: String, value: Variant, comparison_op: EOS.ComparisonOp) -> EOS.Result` | Adds a search filter. |
+| `remove_parameter` | `remove_parameter(key: String, comparison_op: EOS.ComparisonOp) -> EOS.Result` | Removes a search filter. |
+| `set_max_results` | `set_max_results(max_results: int) -> EOS.Result` | Sets the maximum number of results. |
+| `set_session_id` | `set_session_id(session_id: String) -> EOS.Result` | Filters by a specific session ID. |
+| `set_target_user_id` | `set_target_user_id(target_user_id: String) -> EOS.Result` | Filters by a target user ID. |
+| `find` | `find(local_user_id: String) -> void` | Starts the search. The result is delivered via `IEOS.session_search_find_callback`. |
+| `get_search_result_count` | `get_search_result_count() -> int` | Returns the number of results after a successful search. |
+| `copy_search_result_by_index` | `copy_search_result_by_index(index: int) -> Dictionary` | Copies a result by index. The returned dictionary contains `result_code` and `session_details`. |
+
+### EOSGSessionDetails
+
+A read-only handle representing a discovered session.
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `copy_info` | `copy_info() -> Dictionary` | Returns a dictionary with `result_code` and `info`. |
+| `get_session_attribute_count` | `get_session_attribute_count() -> int` | Returns the number of session attributes. |
+| `copy_session_attribute_by_index` | `copy_session_attribute_by_index(attribute_index: int) -> Dictionary` | Copies an attribute by index. |
+| `copy_session_attribute_by_key` | `copy_session_attribute_by_key(attribute_key: String) -> Dictionary` | Copies an attribute by key. |
+
+### EOSGActiveSession
+
+A handle representing a session the local user has joined.
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `copy_info` | `copy_info() -> Dictionary` | Returns a dictionary with `result_code` and `info`. |
+| `get_registered_player_count` | `get_registered_player_count() -> int` | Returns the number of registered players. |
+| `get_registered_player_by_index` | `get_registered_player_by_index(player_index: int) -> String` | Returns the product user ID of the registered player at the given index. |
+
+## Complete example
+
+```gdscript
+# Server: create and advertise a session
+func _ready():
+    var opts = EOS.Sessions.CreateSessionModificationOptions.new()
+    opts.bucket_id = "party-bucket"
+    opts.max_players = 4
+    opts.session_name = "Party"
+
+    var session := HSessions.create_session(opts)
+    if not session:
+        return
+
+    session.add_attribute("level", "margao", EOS.Sessions.SessionAttributeAdvertisementType.Advertise)
+    session.set_permission_level(EOS.Sessions.OnlineSessionPermissionLevel.PublicAdvertised)
+    session.set_host_address("localhost:5412")
+
+    var updated := await HSessions.update_session_async(session)
+    if updated:
+        print("Session is live")
+```
+
+```gdscript
+# Client: search and join
+func _ready():
+    await get_tree().create_timer(5).timeout
+
+    var sessions = await HSessions.search_by_attribute_async({
+        key = "level",
+        value = "margao"
+    })
+    if not sessions or sessions.is_empty():
+        return
+
+    var details: EOSGSessionDetails = sessions[-1]
+    var joined := await HSessions.join_async(details, "Party")
+    if joined:
+        print("Joined session")
+```

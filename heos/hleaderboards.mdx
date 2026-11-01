@@ -1,0 +1,116 @@
+---
+title: "HLeaderboards"
+sidebarTitle: "HLeaderboards"
+description: "High-level autoload singleton for querying Epic Online Services leaderboards and leaderboard records."
+---
+
+`HLeaderboards` is a high-level autoload singleton that wraps the EOS Leaderboards interface. It provides async methods to fetch leaderboard definitions and ranked records without manually managing the underlying EOS options objects and callbacks.
+
+## Methods
+
+### get_leaderboard_definitions_async
+
+```gdscript
+func get_leaderboard_definitions_async() -> Array
+```
+
+Queries all leaderboard definitions configured in the EOS Developer Portal and returns them as an array of dictionaries.
+
+Each returned dictionary contains:
+
+<ResponseField name="leaderboard_id" type="String">
+  Unique identifier for the leaderboard.
+</ResponseField>
+
+<ResponseField name="stat_name" type="String">
+  Name of the stat used to rank entries on this leaderboard.
+</ResponseField>
+
+<ResponseField name="aggregation" type="EOS.Leaderboards.LeaderboardAggregation">
+  Aggregation method used to sort the leaderboard.
+</ResponseField>
+
+<ResponseField name="start_time" type="int">
+  Unix timestamp for the start time, or `EOS.Leaderboard.LEADERBOARD_TIME_UNDEFINED`.
+</ResponseField>
+
+<ResponseField name="end_time" type="int">
+  Unix timestamp for the end time, or `EOS.Leaderboard.LEADERBOARD_TIME_UNDEFINED`.
+</ResponseField>
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var leaderboards = await HLeaderboards.get_leaderboard_definitions_async()
+    for lb in leaderboards:
+        print("Leaderboard: %s (stat: %s)" % [lb.leaderboard_id, lb.stat_name])
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### get_leaderboard_records_async
+
+```gdscript
+func get_leaderboard_records_async(leaderboard_id: String) -> Array
+```
+
+Queries the ranked records for a specific leaderboard and returns them as an array of dictionaries.
+
+Each returned dictionary contains:
+
+<ResponseField name="leaderboard_id" type="String">
+  The leaderboard identifier the record belongs to.
+</ResponseField>
+
+<ResponseField name="user_id" type="String">
+  Product user ID of the player associated with this record.
+</ResponseField>
+
+<ResponseField name="rank" type="int">
+  Sorted position in the leaderboard, starting at 1.
+</ResponseField>
+
+<ResponseField name="score" type="int">
+  The leaderboard score for this player.
+</ResponseField>
+
+<ResponseField name="user_display_name" type="String">
+  The player's latest display name, or an empty string if unavailable.
+</ResponseField>
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var records = await HLeaderboards.get_leaderboard_records_async("my_leaderboard_id")
+    for record in records:
+        print("#%s: %s (%s)" % [record.rank, record.user_display_name, record.score])
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Usage in the sample project
+
+The sample project's `LeaderboardsView` uses `HLeaderboards` to populate a dropdown of available leaderboards and display records in a BBCode table.
+
+```gdscript
+func _on_query_leaderboard():
+    if not visible:
+        return
+    leaderboards = await HLeaderboards.get_leaderboard_definitions_async()
+    _update_select_leaderboard_button()
+
+func _on_view_leaderboard_btn_pressed():
+    var selected_leaderboard_id = select_leaderboard_btn.get_selected_metadata()
+    var records = await HLeaderboards.get_leaderboard_records_async(selected_leaderboard_id)
+    selected_leaderboard.id = selected_leaderboard_id
+    selected_leaderboard.records = records
+    _rebuild_ui()
+```
+
+<Note>
+  Leaderboard scores are driven by stats. Make sure you have configured the matching stat and leaderboard in the EOS Developer Portal, and that scores are being submitted via `HStats.ingest_stat_async` or the low-level stats interface.
+</Note>
+
+<Tip>
+  You can cross-reference [HStats](/heos/hstats) for ingesting stat values that feed into leaderboard rankings.
+</Tip>

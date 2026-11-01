@@ -1,0 +1,292 @@
+---
+title: HLobby
+description: High-level wrapper for an individual Epic Online Services lobby in Godot.
+sidebarTitle: HLobby
+---
+
+`HLobby` wraps a single EOS lobby. It tracks lobby state, members, attributes, and RTC room status, and emits signals when anything changes. You usually obtain an `HLobby` from [HLobbies](/heos/hlobbies) methods such as `create_lobby_async` or `join_async`.
+
+## Signals
+
+<ResponseField name="lobby_updated" type="signal">
+  Emitted when any lobby data changes, including member updates and attribute changes. Not emitted when you are kicked or the lobby is destroyed; use `kicked_from_lobby` for that.
+</ResponseField>
+
+<ResponseField name="kicked_from_lobby" type="signal">
+  Emitted when the current user is kicked, disconnected, or the lobby is destroyed.
+</ResponseField>
+
+<ResponseField name="lobby_owner_changed" type="signal">
+  Emitted when another member is promoted to lobby owner. Use `get_owner` to retrieve the new owner.
+</ResponseField>
+
+<ResponseField name="rtc_data_received" type="signal">
+  Emitted when the current user receives data through the RTC data channel. The signal carries the received data.
+</ResponseField>
+
+## Properties
+
+### Lobby info
+
+<ResponseField name="lobby_id" type="String">
+  Unique identifier for the lobby.
+</ResponseField>
+
+<ResponseField name="owner_product_user_id" type="String">
+  Product user ID of the lobby owner.
+</ResponseField>
+
+<ResponseField name="bucket_id" type="String">
+  Bucket ID used to group similar lobbies.
+</ResponseField>
+
+<ResponseField name="max_members" type="int">
+  Maximum number of members allowed in the lobby.
+</ResponseField>
+
+<ResponseField name="available_slots" type="int">
+  Number of remaining open slots.
+</ResponseField>
+
+<ResponseField name="members" type="Array[HLobbyMember]">
+  Array of [HLobbyMember](/heos/hlobbymember) instances representing current lobby members.
+</ResponseField>
+
+<ResponseField name="allow_invites" type="bool">
+  Whether invites are allowed.
+</ResponseField>
+
+<ResponseField name="permission_level" type="EOS.Lobby.LobbyPermissionLevel">
+  Permission level of the lobby.
+</ResponseField>
+
+<ResponseField name="presence_enabled" type="bool">
+  Whether presence integration is enabled.
+</ResponseField>
+
+<ResponseField name="allow_host_migration" type="bool">
+  Whether host migration is allowed.
+</ResponseField>
+
+### Attributes
+
+<ResponseField name="attributes" type="Array[Dictionary]">
+  Lobby-level attributes. Each entry is a dictionary with:
+  - `key`: `String`
+  - `value`: `Variant`
+  - `visibility`: `EOS.Lobby.LobbyAttributeVisibility`
+</ResponseField>
+
+### RTC room
+
+<ResponseField name="rtc_room_enabled" type="bool">
+  Whether the lobby has an RTC room.
+</ResponseField>
+
+<ResponseField name="rtc_room_name" type="String">
+  Name of the RTC room.
+</ResponseField>
+
+<ResponseField name="rtc_room_connected" type="bool">
+  Whether the local user is connected to the RTC room.
+</ResponseField>
+
+### Other
+
+<ResponseField name="allow_join_by_id" type="bool">
+  Whether the lobby can be joined by ID.
+</ResponseField>
+
+<ResponseField name="rejoin_after_kick_requires_invite" type="bool">
+  Whether a kicked user needs an invite to rejoin.
+</ResponseField>
+
+<ResponseField name="allowed_platform_ids" type="Array">
+  Platform IDs allowed to join this lobby.
+</ResponseField>
+
+## Methods
+
+### Validation and ownership
+
+#### is_valid
+
+```gdscript
+func is_valid() -> bool
+```
+
+Returns `true` if the lobby has a non-empty `lobby_id`.
+
+#### is_owner
+
+```gdscript
+func is_owner(product_user_id = HAuth.product_user_id) -> bool
+```
+
+Returns `true` if the given product user ID is the lobby owner. Defaults to the current logged-in user.
+
+### Member access
+
+#### get_member_by_product_user_id
+
+```gdscript
+func get_member_by_product_user_id(product_user_id: String) -> HLobbyMember
+```
+
+Returns the [HLobbyMember](/heos/hlobbymember) with the given product user ID, or `null`.
+
+#### get_current_member
+
+```gdscript
+func get_current_member() -> HLobbyMember
+```
+
+Returns the [HLobbyMember](/heos/hlobbymember) representing the current user, or `null`.
+
+#### get_owner
+
+```gdscript
+func get_owner() -> HLobbyMember
+```
+
+Returns the [HLobbyMember](/heos/hlobbymember) who owns the lobby, or `null`.
+
+### Attributes
+
+#### get_attribute
+
+```gdscript
+func get_attribute(key: String) -> Dictionary
+```
+
+Returns the lobby attribute with the given key as a dictionary, or an empty dictionary if not found.
+
+#### add_attribute
+
+```gdscript
+func add_attribute(key: String, value: Variant, visibility = EOS.Lobby.LobbyAttributeVisibility.Public) -> bool
+```
+
+Queue a lobby attribute to be added. Call `update_async` to push the change to EOS. Only the owner can modify lobby-level attributes.
+
+#### get_current_member_attribute
+
+```gdscript
+func get_current_member_attribute(key: String) -> Dictionary
+```
+
+Returns the current user's member attribute with the given key, or an empty dictionary.
+
+#### add_current_member_attribute
+
+```gdscript
+func add_current_member_attribute(key: String, value: Variant, visibility = EOS.Lobby.LobbyAttributeVisibility.Public) -> bool
+```
+
+Queue a member attribute for the current user. Call `update_async` to push it.
+
+#### make_attribute
+
+```gdscript
+static func make_attribute(key: String, value: Variant, visibility = EOS.Lobby.LobbyAttributeVisibility.Public) -> Dictionary
+```
+
+Helper that returns an attribute dictionary with `key`, `value`, and `visibility`.
+
+### Lobby lifecycle
+
+#### init_from_id
+
+```gdscript
+func init_from_id(p_lobby_id: String)
+```
+
+Initialize the lobby from a lobby ID. This copies lobby details from EOS and connects internal signals. You rarely call this directly; [HLobbies](/heos/hlobbies) calls it for you.
+
+#### update_async
+
+```gdscript
+func update_async() -> bool
+```
+
+Push pending attribute changes to EOS. Returns `true` on success. This emits `lobby_updated` after a successful update.
+
+```gdscript
+lobby.add_attribute("LEVEL", "Margao")
+lobby.add_current_member_attribute("SKIN", "Robot")
+var ok = await lobby.update_async()
+```
+
+#### leave_async
+
+```gdscript
+func leave_async() -> bool
+```
+
+Leave the lobby. Returns `true` on success. Disconnects internal signals.
+
+#### destroy_async
+
+```gdscript
+func destroy_async() -> bool
+```
+
+Destroy the lobby. Only the owner can call this. Returns `true` on success and emits `kicked_from_lobby`.
+
+### Invites
+
+#### can_invite
+
+```gdscript
+func can_invite(p_product_user_id: String) -> bool
+```
+
+Returns `true` if the current user can invite the given product user ID. Checks that invites are allowed, slots are available, and the target is not already in the lobby.
+
+### RTC data
+
+#### rtc_send_data
+
+```gdscript
+func rtc_send_data(data: Variant) -> bool
+```
+
+Send a `Variant` to all users in the lobby's RTC data channel. The data is encoded with `var_to_bytes`. Maximum packet size is `EOS.RTCData.MAX_PACKET_SIZE_BYTES`.
+
+#### rtc_send_data_raw
+
+```gdscript
+func rtc_send_data_raw(data: PackedByteArray) -> bool
+```
+
+Send raw bytes to all users in the RTC data channel. Maximum packet size is `EOS.RTCData.MAX_PACKET_SIZE_BYTES`.
+
+```gdscript
+var ok = lobby.rtc_send_data({message = "hello"})
+var ok_raw = lobby.rtc_send_data_raw(PackedByteArray([1, 2, 3]))
+```
+
+## Example: managing a lobby
+
+```gdscript
+var lobby := await HLobbies.create_lobby_async(create_opts)
+if not lobby:
+    return
+
+# Listen for changes
+lobby.lobby_updated.connect(_on_lobby_updated)
+lobby.kicked_from_lobby.connect(_on_kicked)
+
+# Add attributes and update
+lobby.add_attribute("LEVEL", "Margao")
+lobby.add_attribute("OWNER_NAME", HAuth.display_name)
+lobby.add_current_member_attribute("USER_NAME", HAuth.display_name)
+await lobby.update_async()
+
+# Leave when done
+var ok = await lobby.leave_async()
+```
+
+<Warning>
+  Always call `leave_async` or `destroy_async` before discarding an `HLobby` reference. Otherwise you remain in the lobby on the EOS backend.
+</Warning>

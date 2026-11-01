@@ -1,0 +1,154 @@
+---
+title: HLobbyMember
+description: High-level wrapper for an individual member inside an Epic Online Services lobby in Godot.
+sidebarTitle: HLobbyMember
+---
+
+`HLobbyMember` represents a single user inside an [HLobby](/heos/hlobby). It exposes member attributes, RTC state, and moderation methods such as muting, kicking, and promoting.
+
+## Signals
+
+<ResponseField name="rtc_state_updated" type="signal">
+  Emitted when the member's RTC state changes, such as talking status, mute state, or room membership.
+</ResponseField>
+
+## Properties
+
+<ResponseField name="product_user_id" type="String">
+  Product user ID of the member.
+</ResponseField>
+
+<ResponseField name="epic_account_id" type="String">
+  Epic account ID of the member.
+</ResponseField>
+
+<ResponseField name="display_name" type="String">
+  Display name of the member.
+</ResponseField>
+
+<ResponseField name="attributes" type="Array[Dictionary]">
+  Member-level attributes. Each entry is a dictionary with:
+  - `key`: `String`
+  - `value`: `Variant`
+  - `visibility`: `EOS.Lobby.LobbyAttributeVisibility`
+</ResponseField>
+
+<ResponseField name="rtc_state" type="Dictionary">
+  Current RTC state with the following keys:
+  - `is_in_rtc_room`: `bool`
+  - `is_talking`: `bool`
+  - `is_locally_muted`: `bool`
+  - `is_hard_muted`: `bool`
+  - `is_audio_output_disabled`: `bool`
+</ResponseField>
+
+## Methods
+
+### get_attribute
+
+```gdscript
+func get_attribute(key: String) -> Dictionary
+```
+
+Returns the member attribute with the given key as a dictionary, or an empty dictionary if not found.
+
+### is_muted
+
+```gdscript
+func is_muted() -> bool
+```
+
+Returns `true` if this member is muted. For the current user, this checks `is_audio_output_disabled`. For remote users, it checks `is_locally_muted`.
+
+### is_hard_muted
+
+```gdscript
+func is_hard_muted() -> bool
+```
+
+Returns `true` if this member has been hard-muted by the lobby owner.
+
+### is_owner
+
+```gdscript
+func is_owner() -> bool
+```
+
+Returns `true` if this member is the lobby owner.
+
+### is_self
+
+```gdscript
+func is_self() -> bool
+```
+
+Returns `true` if this member is the current logged-in user.
+
+### get_lobby
+
+```gdscript
+func get_lobby() -> HLobby
+```
+
+Returns the [HLobby](/heos/hlobby) this member belongs to, or `null` if the lobby no longer exists.
+
+### toggle_mute_member_async
+
+```gdscript
+func toggle_mute_member_async() -> bool
+```
+
+Mute or unmute this member.
+
+- If the member is the current user, this toggles audio output (sending) via `EOS.RTCAudio.UpdateSendingOptions`.
+- If the member is a remote user, this locally mutes or unmutes their audio via `EOS.RTCAudio.UpdateReceivingOptions`.
+
+Returns `true` on success.
+
+```gdscript
+var member = lobby.get_member_by_product_user_id(some_id)
+var ok = await member.toggle_mute_member_async()
+```
+
+### toggle_hard_mute_member_async
+
+```gdscript
+func toggle_hard_mute_member_async() -> bool
+```
+
+Hard mute or un-hard-mute this member. A hard-muted member cannot speak but can still hear others. Only the lobby owner can call this. Returns `true` on success.
+
+```gdscript
+var member = lobby.get_member_by_product_user_id(some_id)
+var ok = await member.toggle_hard_mute_member_async()
+```
+
+### kick_member_async
+
+```gdscript
+func kick_member_async() -> bool
+```
+
+Kick this member from the lobby. Only the lobby owner can call this. Returns `true` on success.
+
+```gdscript
+var member = lobby.get_member_by_product_user_id(some_id)
+var ok = await member.kick_member_async()
+```
+
+### promote_member_async
+
+```gdscript
+func promote_member_async() -> bool
+```
+
+Promote this member to lobby owner. Only the current owner can call this. Returns `true` on success.
+
+```gdscript
+var member = lobby.get_member_by_product_user_id(some_id)
+var ok = await member.promote_member_async()
+```
+
+<Note>
+  Moderation methods (`toggle_hard_mute_member_async`, `kick_member_async`, `promote_member_async`) require the caller to be the lobby owner. Always check `lobby.is_owner()` before invoking them.
+</Note>

@@ -1,0 +1,92 @@
+---
+title: "HLog"
+description: "Reference for the HLog logging utility used by High Level EOS classes."
+sidebarTitle: "HLog"
+---
+
+HLog is a static logging utility used internally by High Level EOS (HEOS) classes. You can also use it directly to create scoped loggers for your own classes, and to control the verbosity of HEOS output.
+
+## Log levels
+
+HLog defines the following log levels in `HLog.LogLevel`:
+
+| Level | Value | Description |
+| --- | --- | --- |
+| `OFF` | `0` | No logging. |
+| `ERROR` | `1` | Errors only. |
+| `WARN` | `2` | Warnings and errors. |
+| `INFO` | `3` | Info, warnings, and errors. |
+| `DEBUG` | `4` | Debug and above. |
+| `VERBOSE` | `5` | All messages including verbose. |
+
+## Properties
+
+### `log_level`
+
+The current global log level. Defaults to `HLog.LogLevel.INFO`. Set this before initializing EOS to control how much output HEOS classes produce.
+
+```gdscript
+static var log_level = LogLevel.INFO
+```
+
+## Methods
+
+### `logger(clazz_name: String) -> HEOSLogger`
+
+Returns a new `HEOSLogger` instance scoped to the given class name. HEOS classes use this internally to prefix log lines with the class name.
+
+```gdscript
+static func logger(clazz_name: String) -> HEOSLogger
+```
+
+## HEOSLogger
+
+`HEOSLogger` is a nested class returned by `HLog.logger()`. It provides the following methods:
+
+### `verbose(msg: String) -> void`
+
+Log a verbose message if `HLog.log_level` is `VERBOSE`.
+
+### `debug(msg: String) -> void`
+
+Log a debug message if `HLog.log_level` is `DEBUG` or higher.
+
+### `info(msg: String) -> void`
+
+Log an info message if `HLog.log_level` is `INFO` or higher.
+
+### `warn(msg: String) -> void`
+
+Log a warning message if `HLog.log_level` is `WARN` or higher.
+
+### `error(msg: String) -> void`
+
+Log an error message if `HLog.log_level` is `ERROR` or higher.
+
+## Log output format
+
+Each log line is printed with the following format:
+
+```text
+YYYY-MM-DDTHH:MM:SS [LEVEL] [ClassName] Message
+```
+
+## Usage example
+
+```gdscript
+extends Node
+
+func _ready() -> void:
+    # Show debug and above from HEOS classes
+    HLog.log_level = HLog.LogLevel.DEBUG
+
+    # Create a logger for your own class
+    var log = HLog.logger("MyGameManager")
+    log.info("Game manager starting up")
+    log.debug("Debug detail: %s" % some_value)
+    log.error("Something went wrong")
+```
+
+<Note>
+  HLog only controls output from HEOS classes. To configure logging from the EOS SDK itself, use [HPlatform.set_eos_log_level](/heos/hplatform#set_eos_log_level).
+</Note>

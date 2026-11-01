@@ -1,0 +1,90 @@
+---
+title: "HStats"
+description: "High-level autoload for querying and ingesting Epic Online Services player stats."
+sidebarTitle: "HStats"
+---
+
+The `HStats` autoload wraps the EOS Stats interface so you can read a player's current stats and ingest new values without dealing with low-level option objects.
+
+## Methods
+
+### get_stats_async
+
+```gdscript
+func get_stats_async() -> Array
+```
+
+Queries the EOS backend for the current player's stats and returns them as an array of dictionaries. Each dictionary contains:
+
+<ResponseField name="name" type="String">
+  The name of the stat.
+</ResponseField>
+
+<ResponseField name="value" type="int">
+  The current value for the stat.
+</ResponseField>
+
+<ResponseField name="start_time" type="int">
+  Unix timestamp for when the stat period started, or `EOS.Stats.STATS_TIME_UNDEFINED`.
+</ResponseField>
+
+<ResponseField name="end_time" type="int">
+  Unix timestamp for when the stat period ends, or `EOS.Stats.STATS_TIME_UNDEFINED`.
+</ResponseField>
+
+```gdscript
+var stats := await HStats.get_stats_async()
+for stat in stats:
+    print("%s = %d" % [stat.name, stat.value])
+```
+
+### ingest_stat_async
+
+```gdscript
+func ingest_stat_async(stat_name: String, ingest_amount: int) -> EOS.Result
+```
+
+Ingests a stat by the specified amount for the local player. Returns the EOS `Result` code so you can check for success with `EOS.is_success`.
+
+```gdscript
+var ret := await HStats.ingest_stat_async("kills", 5)
+if EOS.is_success(ret):
+    print("Stat ingested successfully")
+else:
+    print("Failed: %s" % EOS.result_str(ret))
+```
+
+<Note>
+  Ingesting a stat does not immediately update the local cache. Call `get_stats_async` again if you need the latest values in the same session.
+</Note>
+
+## Usage example
+
+The sample `StatsView` demonstrates a typical loop: query on visibility, ingest on button press, then refresh.
+
+```gdscript
+extends VBoxContainer
+
+var stats = []
+
+func _ready() -> void:
+    visibility_changed.connect(_on_query_stats)
+
+func _on_query_stats():
+    if not visible:
+        return
+    stats = await HStats.get_stats_async()
+    _rebuild_ui()
+
+func ingest_stat(stat_name: String, amount: int):
+    var ret := await HStats.ingest_stat_async(stat_name, amount)
+    if EOS.is_success(ret):
+        print("Ingested %d into %s" % [amount, stat_name])
+        _on_query_stats()
+    else:
+        print("Ingest failed: %s" % EOS.result_str(ret))
+
+func _rebuild_ui():
+    for stat in stats:
+        print("%s = %d" % [stat.name, stat.value])
+```

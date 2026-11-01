@@ -1,0 +1,72 @@
+---
+title: "Introduction"
+description: "Get started with Epic Online Services Godot (EOSG), a Godot 4.2+ plugin that wraps the Epic Online Services C SDK."
+---
+
+Epic Online Services Godot (EOSG) is the easiest way to integrate Epic Online Services into your Godot project.
+
+The plugin supports the following platforms:
+
+- Windows x64
+- Linux x64/arm64
+- Android x64/arm64
+- macOS universal
+- iOS arm64 (iPhone/simulator)
+
+This plugin has two main ways in which you can interact with Epic Online Services:
+
+1. High Level EOS (Recommended)
+2. GDExtension EOS
+
+## High Level EOS (Recommended)
+
+The High Level Epic Online Services provides easy-to-use methods and signals to interact with EOS, making it ideal for beginners. This simplified API abstracts away many of the complexities of the EOS SDK while providing access to its core functionality.
+
+## GDExtension EOS
+
+The GDExtension EOS provides low-level access to the Epic Online Services SDK. This interface is not recommended for beginners but gives you full access to the underlying EOS functionality through the `EOS` and `IEOS` classes in Godot.
+
+## Features
+
+- Authentication (Epic Games, Steam, Discord, Anonymous, etc)
+- Social Overlay on Windows
+- Achievements
+- Stats and Leaderboards
+- Lobby, Sessions, and Multiplayer
+- Voice
+- Metrics
+- Mods
+- Player/Title data storage
+- Progression Snapshot
+- Reports and Sanctions
+- Ecommerce (Epic Games Store)
+- AntiCheat
+
+<Note>
+  This project is NOT affiliated with Epic Games Inc or Godot Engine. It does not endorse Epic Online Services. This project and sample Godot scenes are provided solely for educational purposes and may or may not comply with Epic Games' Design Guidelines. If you plan to release a game, make sure you read the [Guidelines](https://dev.epicgames.com/docs/services/en-US/EpicAccountServices/DesignGuidelines/index.html) and any other steps needed to release a public game, like asking for user consent, providing an option to delete user data, and maintaining a website with a privacy policy and license.
+</Note>
+
+## Community
+
+- Join the Discord server for discussions, suggestions, and bug reports: [3ddelano Cafe](https://discord.gg/FZY9TqW)
+- Watch the demo video playlist on YouTube: [Epic Online Services Tutorial series](https://www.youtube.com/playlist?list=PL5t0hR7ADzun5JYF4e2a2FtZEWYHxK83_)
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install the plugin from the Godot Asset Library or GitHub.
+  </Card>
+
+  <Card title="Quickstart" icon="play" href="/quickstart">
+    Initialize EOS and log in with a minimal script.
+  </Card>
+
+  <Card title="High Level EOS" icon="layers" href="/heos/overview">
+    Explore the simplified API for EOS.
+  </Card>
+
+  <Card title="Sample Project" icon="code" href="/sample-project">
+    Run the included demo project to see EOS features in action.
+  </Card>
+</Columns>

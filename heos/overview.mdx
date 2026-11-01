@@ -1,0 +1,72 @@
+---
+title: "High Level EOS overview"
+description: "Learn about the High Level EOS (HEOS) autoload singletons that wrap the Epic Online Services C SDK for Godot 4.2+."
+sidebarTitle: "Overview"
+---
+
+High Level EOS (HEOS) provides easy-to-use autoload singletons with async methods and signals to interact with Epic Online Services. It is the recommended starting point for most projects because it hides the low-level callback boilerplate behind `await`-friendly GDScript helpers.
+
+## How it works
+
+When you enable the plugin, Godot registers several autoload singletons automatically. Each singleton maps to a major EOS interface, such as Platform, Auth, Achievements, or P2P. Methods on these singletons are async, so you call them with `await` and receive a typed result directly instead of wiring up callbacks manually.
+
+<Note>
+  If you need access to the raw EOS C SDK wrappers, use the GDExtension EOS layer documented in [GDExtension EOS](/advanced/gdextension-eos).
+</Note>
+
+## Registered singletons
+
+The following autoloads are registered by the plugin (`plugin.gd`):
+
+| Singleton | Description |
+| --- | --- |
+| [HPlatform](/heos/hplatform) | Initialize the EOS SDK and create the platform. |
+| [HAuth](/heos/hauth) | Log in and out of Epic Account Services and Epic Game Services. |
+| [HAchievements](/heos/hachievements) | Query and unlock achievements. |
+| [HFriends](/heos/hfriends) | Fetch the friends list for the logged-in user. |
+| [HStats](/heos/hstats) | Query and ingest player stats. |
+| [HLeaderboards](/heos/hleaderboards) | Query leaderboard definitions and records. |
+| [HLobbies](/heos/hlobbies) | Create, join, and search lobbies. |
+| [HSessions](/heos/hsessions) | Create, update, join, and search sessions. |
+| [HP2P](/heos/hp2p) | Configure P2P networking, NAT type, relay control, and packet queues. |
+| [HLog](/heos/hlog) | Configure HEOS internal logging and create per-class loggers. |
+
+## Using async methods
+
+HEOS methods that interact with EOS are asynchronous and return values you can `await` in GDScript. For example, to initialize EOS and log in:
+
+```gdscript
+extends Node
+
+func _ready() -> void:
+    HLog.log_level = HLog.LogLevel.INFO
+
+    var credentials = HCredentials.new()
+    credentials.product_name = "My Game"
+    credentials.product_version = "1.0"
+    credentials.product_id = "PRODUCT_ID_HERE"
+    credentials.sandbox_id = "SANDBOX_ID_HERE"
+    credentials.deployment_id = "DEPLOYMENT_ID_HERE"
+    credentials.client_id = "CLIENT_ID_HERE"
+    credentials.client_secret = "CLIENT_SECRET_HERE"
+
+    var setup_success := await HPlatform.setup_eos_async(credentials)
+    if not setup_success:
+        printerr("Failed to setup EOS")
+        return
+
+    HAuth.logged_in.connect(_on_logged_in)
+    await HAuth.login_devtool_async("localhost:4545", "CREDENTIAL_NAME_HERE")
+
+func _on_logged_in():
+    print("Logged in: product_user_id=%s" % HAuth.product_user_id)
+```
+
+## Relationship to low-level EOS
+
+HEOS is built on top of two lower-level systems:
+
+- **IEOS** (the GDExtension singleton) exposes raw EOS callbacks as Godot signals.
+- **EOS** (the GDScript class) exposes option structs, enums, and result codes.
+
+HEOS connects to IEOS signals, translates the callback data into return values, and emits its own higher-level signals when state changes (for example, `logged_in`, `achievement_unlocked`). If a feature is not yet covered by HEOS, you can fall back to IEOS and EOS directly. See [GDExtension EOS](/advanced/gdextension-eos) for details.

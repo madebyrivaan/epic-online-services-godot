@@ -1,0 +1,26 @@
+---
+title: "Sample Project"
+description: "Run the included EOSG demo project to explore Epic Online Services features in Godot."
+---
+
+The sample project showcases most of the Epic Online Services features. Follow these steps to run it.
+
+<Steps>
+  <Step title="Clone or download the repo">
+    Get the plugin source from [GitHub](https://github.com/3ddelano/epic-online-services-godot).
+  </Step>
+  <Step title="Add the plugin binaries">
+    You cannot directly open the `./sample` folder and run the project, because the plugin binaries are not included. Download the [latest release](https://github.com/3ddelano/epic-online-services-godot/releases/latest) from the Releases section and replace the existing `sample/addons/epic-online-services-godot` folder with the one from the release (this includes the built shared libraries). See the [Installation](/installation) section for more information on how to install the plugin.
+  </Step>
+  <Step title="Add your credentials">
+    Copy your credentials (`Product Id`, `Sandbox Id`, `Deployment Id`, `Client Id`, `Client Secret`) of your Epic Games product from the Epic Games Dev Portal and paste them in `./sample/Main.gd` script in the relevant sections. The encryption key is a random 64 character long string. Keep these credentials as private as possible. One way is to make sure to encrypt all scripts when exporting the final game. See [Compiling with script key encryption](https://docs.godotengine.org/en/stable/development/compiling/compiling_with_script_encryption_key.html).
+  </Step>
+  <Step title="Configure your product on the EOS Dev Portal">
+    - In the **Client Policies** section in **Product Settings**, for the Client policy type choose **Custom policy**, enable **User is required**, and enable every feature and action except **Connect** (Trusted Server Required). This will allow the sample to access the different services provided by Epic Online Services. In your actual game, the client policy is important and you should give minimal permissions to features.
+    - In the **Permissions** section of **Epic Account Services**, enable all three: **Basic Profile**, **Online Presence**, and **Friends**.
+    - (Optional if you want some pre-made achievements) In the **Achievements** section in **Game Services**, use the **Bulk Import** option and import the `HelloProduct.zip` file located at `res://HelloProduct.zip`.
+  </Step>
+  <Step title="Open the sample folder in Godot">
+    Finally, open the `./sample` folder in Godot and run the project.
+  </Step>
+</Steps>

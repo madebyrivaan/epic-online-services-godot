@@ -1,0 +1,80 @@
+---
+title: "HFriends"
+sidebarTitle: "HFriends"
+description: "High-level autoload singleton for querying the authenticated user's Epic Online Services friends list."
+---
+
+`HFriends` is a high-level autoload singleton that wraps the EOS Friends interface. It provides a single async method to fetch the authenticated user's friends list, automatically resolving each friend's user info through [HAuth](/heos/hauth).
+
+## Methods
+
+### get_friends_async
+
+```gdscript
+func get_friends_async() -> Array
+```
+
+Queries the friends list for the currently logged-in Epic Games account and returns an array of user info dictionaries.
+
+Each dictionary in the returned array follows the same shape as [HAuth.get_user_info_async](/heos/hauth). Typical fields include:
+
+<ResponseField name="user_id" type="String">
+  Epic account ID of the friend.
+</ResponseField>
+
+<ResponseField name="display_name" type="String">
+  The friend's display name.
+</ResponseField>
+
+<ResponseField name="display_name_sanitized" type="String">
+  A sanitized version of the display name suitable for UI rendering.
+</ResponseField>
+
+<ResponseField name="nickname" type="String">
+  The friend's nickname, if set.
+</ResponseField>
+
+<ResponseField name="country" type="String">
+  The friend's registered country, if available.
+</ResponseField>
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var friends = await HFriends.get_friends_async()
+    for friend in friends:
+        print("Friend: %s (%s)" % [friend.display_name, friend.user_id])
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Usage in the sample project
+
+The sample project's `FriendsView` uses `HFriends` to populate a friends list table when the view becomes visible.
+
+```gdscript
+func _query_friends():
+    if not visible:
+        return
+    if HAuth.epic_account_id == "":
+        print("Unable to query friends. Needs to login with Epic Games account.")
+        return
+    friends = await HFriends.get_friends_async()
+    _rebuild_ui()
+```
+
+The view also clears the cached friends list on logout by listening to `HAuth.logged_out`.
+
+```gdscript
+func _on_logged_out():
+    friends = []
+    _rebuild_ui()
+```
+
+<Warning>
+  `get_friends_async` requires an active Epic Games account login via [HAuth](/heos/hauth). If the user is not logged in, the method will return an empty array and log an error.
+</Warning>
+
+<Tip>
+  Because `get_friends_async` internally calls `HAuth.get_user_info_async` for each friend, the first call may take longer for users with large friends lists. Consider caching results if you need to refresh the UI frequently.
+</Tip>

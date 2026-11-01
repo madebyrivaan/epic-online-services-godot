@@ -1,0 +1,94 @@
+{
+  "theme": "mint",
+  "name": "Epic Online Services Godot",
+  "colors": {
+    "primary": "#478CBF",
+    "light": "#6FA8D6",
+    "dark": "#2F6A96"
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "favicon": "/favicon.svg",
+  "navbar": {
+    "links": [
+      {
+        "href": "https://discord.gg/FZY9TqW",
+        "label": "Discord"
+      }
+    ],
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/madebyrivaan/epic-online-services-godot"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/madebyrivaan/epic-online-services-godot",
+      "discord": "https://discord.gg/FZY9TqW"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ],
+    "display": "header"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get started",
+        "pages": [
+          "index",
+          "installation",
+          "quickstart",
+          "sample-project",
+          "update-guide"
+        ]
+      },
+      {
+        "group": "Platforms",
+        "pages": [
+          "platforms/windows",
+          "platforms/android",
+          "platforms/ios"
+        ]
+      },
+      {
+        "group": "High Level EOS",
+        "pages": [
+          "heos/overview",
+          "heos/hplatform",
+          "heos/hauth",
+          "heos/hlog",
+          "heos/hachievements",
+          "heos/hstats",
+          "heos/hleaderboards",
+          "heos/hfriends",
+          "heos/hlobbies",
+          "heos/hsessions",
+          "heos/hp2p",
+          "heos/hlobby",
+          "heos/hlobbymember"
+        ]
+      },
+      {
+        "group": "Advanced",
+        "pages": [
+          "advanced/gdextension-eos",
+          "advanced/multiplayer-peer",
+          "advanced/building-from-source",
+          "advanced/project-status"
+        ]
+      }
+    ]
+  }
+}

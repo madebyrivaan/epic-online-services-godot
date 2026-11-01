@@ -1,0 +1,197 @@
+---
+title: "HP2P"
+description: "High-level autoload for Epic Online Services P2P networking in the EOSG plugin."
+sidebarTitle: "HP2P"
+---
+
+`HP2P` is a Godot autoload singleton that wraps the EOS P2P interface with simplified helpers. Use it to query NAT type, manage relay settings, and configure network port and packet queue behavior.
+
+<Note>
+  Before using `HP2P`, initialize the EOS platform with [HPlatform](/heos/hplatform) and log in with [HAuth](/heos/hauth).
+</Note>
+
+## Public methods
+
+### get_nat_type_async
+
+```gdscript
+func get_nat_type_async() -> EOS.P2P.NATType
+```
+
+Queries the current user's NAT type asynchronously. Returns one of the following values from `EOS.P2P.NATType`:
+
+- `Unknown`
+- `Open`
+- `Moderate`
+- `Strict`
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var nat_type := await HP2P.get_nat_type_async()
+    match nat_type:
+        EOS.P2P.NATType.Open:
+            print("NAT is open")
+        EOS.P2P.NATType.Moderate:
+            print("NAT is moderate")
+        EOS.P2P.NATType.Strict:
+            print("NAT is strict")
+        _:
+            print("NAT is unknown")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### get_relay_control
+
+```gdscript
+func get_relay_control() -> EOS.P2P.RelayControl
+```
+
+Returns the current relay control setting. Possible values from `EOS.P2P.RelayControl`:
+
+- `NoRelays`
+- `AllowRelays`
+- `ForceRelays`
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var relay := HP2P.get_relay_control()
+    print("Current relay control: %s" % relay)
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### set_relay_control
+
+```gdscript
+func set_relay_control(relay_control: EOS.P2P.RelayControl) -> EOS.Result
+```
+
+Sets how relay servers should be used for P2P connections. Returns `EOS.Result.Success` on success.
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var result := HP2P.set_relay_control(EOS.P2P.RelayControl.AllowRelays)
+    if result == EOS.Result.Success:
+        print("Relay control updated")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### get_port_range
+
+```gdscript
+func get_port_range() -> Dictionary
+```
+
+Returns a dictionary with the following keys:
+
+- `result_code`: `EOS.Result`
+- `port`: `int`
+- `max_additional_ports_to_try`: `int`
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var info := HP2P.get_port_range()
+    if info.result_code == EOS.Result.Success:
+        print("Port: %d, extra ports: %d" % [info.port, info.max_additional_ports_to_try])
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### set_port_range
+
+```gdscript
+func set_port_range(port: int, max_additional_ports_to_try: int) -> EOS.Result
+```
+
+Configures the primary network port and the number of fallback ports to try above it if the primary is unavailable.
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var result := HP2P.set_port_range(7777, 10)
+    if result == EOS.Result.Success:
+        print("Port range set")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### get_packet_queue_info
+
+```gdscript
+func get_packet_queue_info() -> Dictionary
+```
+
+Returns the current state of the incoming and outgoing packet queues. The dictionary contains:
+
+- `result_code`: `EOS.Result`
+- `incoming_packet_queue_current_packet_count`: `int`
+- `incoming_packet_queue_current_size_bytes`: `int`
+- `incoming_packet_queue_max_size_bytes`: `int`
+- `outgoing_packet_queue_current_packet_count`: `int`
+- `outgoing_packet_queue_current_size_bytes`: `int`
+- `outgoing_packet_queue_max_size_bytes`: `int`
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var info := HP2P.get_packet_queue_info()
+    if info.result_code == EOS.Result.Success:
+        print("Incoming packets: %d" % info.incoming_packet_queue_current_packet_count)
+        print("Outgoing packets: %d" % info.outgoing_packet_queue_current_packet_count)
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### set_packet_queue_size
+
+```gdscript
+func set_packet_queue_size(incoming_packet_queue_max_size_bytes: int, outgoing_packet_queue_max_size_bytes: int) -> EOS.Result
+```
+
+Sets the maximum size in bytes for the incoming and outgoing packet queues.
+
+<AccordionGroup>
+  <Accordion title="Example">
+    ```gdscript
+    var result := HP2P.set_packet_queue_size(65536, 65536)
+    if result == EOS.Result.Success:
+        print("Queue sizes updated")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Complete example
+
+```gdscript
+func _on_logged_in():
+    var nat_type := await HP2P.get_nat_type_async()
+    match nat_type:
+        EOS.P2P.NATType.Open:
+            print("NAT is open")
+        EOS.P2P.NATType.Moderate:
+            print("NAT is moderate")
+        EOS.P2P.NATType.Strict:
+            print("NAT is strict")
+        _:
+            print("NAT is unknown")
+
+    var relay := HP2P.get_relay_control()
+    print("Current relay control: %s" % relay)
+
+    var port_info := HP2P.get_port_range()
+    if port_info.result_code == EOS.Result.Success:
+        print("Using port %d with %d fallbacks" % [port_info.port, port_info.max_additional_ports_to_try])
+
+    var queue_info := HP2P.get_packet_queue_info()
+    if queue_info.result_code == EOS.Result.Success:
+        print("Incoming queue: %d packets, %d bytes" % [
+            queue_info.incoming_packet_queue_current_packet_count,
+            queue_info.incoming_packet_queue_current_size_bytes
+        ])
+```

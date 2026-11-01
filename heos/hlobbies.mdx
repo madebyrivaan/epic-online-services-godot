@@ -1,0 +1,200 @@
+---
+title: "HLobbies"
+description: "High-level singleton for creating, joining, and searching Epic Online Services lobbies in Godot."
+sidebarTitle: "HLobbies"
+---
+
+The `HLobbies` singleton wraps the EOS Lobby interface with async helpers so you can create, join, and search lobbies without managing low-level callbacks. It is an autoload that works alongside [HLobby](/heos/hlobby) and [HLobbyMember](/heos/hlobbymember).
+
+## Properties
+
+<ResponseField name="max_search_results" type="int">
+  Maximum number of lobbies returned in search calls. Defaults to `25`. Does not affect `create_search` and `search_async`.
+</ResponseField>
+
+<ResponseField name="presence_enabled" type="bool">
+  Whether to show the lobby in the user's presence. Defaults to `true`.
+</ResponseField>
+
+<ResponseField name="local_rtc_options" type="Dictionary">
+  Local RTC options for the lobby. Optional overrides include:
+
+  - `flags`: bitwise union of `EOS.RTC.JoinRoomFlags`
+  - `use_manual_audio_input`: `bool`
+  - `use_manual_audio_output`: `bool`
+  - `local_audio_device_input_starts_muted`: `bool`
+
+  Default:
+
+  ```gdscript
+  {
+      flags = EOS.RTC.JoinRoomFlags.EnableDataChannel
+  }
+  ```
+</ResponseField>
+
+## Methods
+
+### create_lobby_async
+
+```gdscript
+func create_lobby_async(opts: EOS.Lobby.CreateLobbyOptions) -> HLobby
+```
+
+Create a new lobby and return an [HLobby](/heos/hlobby) instance, or `null` on failure.
+
+```gdscript
+var opts := EOS.Lobby.CreateLobbyOptions.new()
+opts.bucket_id = "battle_royale"
+opts.max_lobby_members = 4
+opts.permission_level = EOS.Lobby.LobbyPermissionLevel.PublicAdvertised
+opts.allow_invites = true
+opts.presence_enabled = true
+opts.enable_rtc_room = true
+
+var lobby := await HLobbies.create_lobby_async(opts)
+if lobby:
+    print("Created lobby: %s" % lobby.lobby_id)
+```
+
+### join_by_id_async
+
+```gdscript
+func join_by_id_async(lobby_id: String) -> HLobby
+```
+
+Join a lobby by its ID. Only use this when the lobby has join-by-ID enabled, which is intended for native invites on an integrated platform. Returns [HLobby](/heos/hlobby) or `null`.
+
+### join_async
+
+```gdscript
+func join_async(lobby: HLobby) -> HLobby
+```
+
+Join an existing lobby from a search result. Returns a new [HLobby](/heos/hlobby) instance or `null`.
+
+```gdscript
+var lobbies = await HLobbies.search_by_bucket_id_async("battle_royale")
+if lobbies and lobbies.size() > 0:
+    var joined = await HLobbies.join_async(lobbies[0])
+```
+
+### search_by_product_user_id_async
+
+```gdscript
+func search_by_product_user_id_async(product_user_id: String) -> Array[HLobby]
+```
+
+Search for public lobbies that a specific user is in. Returns an array of [HLobby](/heos/hlobby) or `null`.
+
+### search_by_attribute_async
+
+```gdscript
+func search_by_attribute_async(attributes) -> Array[HLobby]
+```
+
+Search for public lobbies based on attributes. The argument can be a single `Dictionary` or an `Array` of dictionaries. Multiple attributes are combined with an implicit AND.
+
+Each attribute dictionary expects:
+
+- `key`: `String`
+- `value`: `String`
+- `comparison`: `EOS.ComparisonOp` (defaults to `Equal`)
+
+```gdscript
+var lobbies = await HLobbies.search_by_attribute_async({
+    key = "LEVEL",
+    value = "Margao",
+    comparison = EOS.ComparisonOp.Equal
+})
+```
+
+### search_by_lobby_id_async
+
+```gdscript
+func search_by_lobby_id_async(lobby_id: String) -> Array[HLobby]
+```
+
+Search for a lobby by ID. Returns at most one lobby in an array, or `null`.
+
+### search_by_bucket_id_async
+
+```gdscript
+func search_by_bucket_id_async(bucket_id: String) -> Array[HLobby]
+```
+
+Search for lobbies by bucket ID. This is a convenience wrapper around `search_by_attribute_async` using `EOS.Lobby.SEARCH_BUCKET_ID`.
+
+### create_search
+
+```gdscript
+func create_search(opts: EOS.Lobby.CreateLobbySearchOptions) -> EOSGLobbySearch
+```
+
+Advanced: create a raw `EOSGLobbySearch` object. Returns `null` on failure. Use `search_async` to execute it.
+
+### search_async
+
+```gdscript
+func search_async(lobby_search: EOSGLobbySearch) -> Array[HLobby]
+```
+
+Advanced: execute a lobby search and return an array of [HLobby](/heos/hlobby), or `null`.
+
+## Example: creating and searching lobbies
+
+The sample project shows a typical flow in `CreateLobbyPopup.gd` and `SearchLobby.gd`.
+
+### Creating a lobby
+
+```gdscript
+var create_opts := EOS.Lobby.CreateLobbyOptions.new()
+create_opts.bucket_id = "battle_royale"
+create_opts.max_lobby_members = 4
+create_opts.permission_level = EOS.Lobby.LobbyPermissionLevel.PublicAdvertised
+create_opts.allow_invites = true
+create_opts.presence_enabled = true
+create_opts.enable_rtc_room = true
+create_opts.local_rtc_options = {
+    flags = EOS.RTC.JoinRoomFlags.EnableDataChannel
+}
+
+var lobby := await HLobbies.create_lobby_async(create_opts)
+if not lobby:
+    print("Failed to create lobby")
+    return
+
+# Add lobby-level attributes
+lobby.add_attribute("LEVEL", "Margao")
+lobby.add_attribute("OWNER_NAME", HAuth.display_name)
+
+# Add current member attributes
+lobby.add_current_member_attribute("USER_NAME", HAuth.display_name)
+lobby.add_current_member_attribute("SKIN", "Robot")
+
+await lobby.update_async()
+```
+
+### Searching for lobbies
+
+```gdscript
+# Search by map attribute
+var lobbies = await HLobbies.search_by_attribute_async({
+    key = "LEVEL",
+    value = "Margao",
+    comparison = EOS.ComparisonOp.Equal
+})
+
+# Search by bucket ID
+var lobbies = await HLobbies.search_by_bucket_id_async("battle_royale")
+
+# Search by lobby ID
+var lobbies = await HLobbies.search_by_lobby_id_async("some-lobby-id")
+
+# Search by user ID
+var lobbies = await HLobbies.search_by_product_user_id_async("some-product-user-id")
+```
+
+<Note>
+  Always check the returned value for `null` before iterating. A `null` result means the search request failed.
+</Note>
