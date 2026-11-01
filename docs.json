@@ -91,5 +91,21 @@
       }
     ]
   },
-  "description": "a detailed repo of project - https://github.com/3ddelano/epic-online-services-godot/"
+  "description": "Documentation for Epic Online Services Godot (EOSG), the Godot 4.2+ plugin for Epic Online Services: authentication, achievements, stats, leaderboards, lobbies, sessions, P2P multiplayer, and more.",
+  "seo": {
+    "metatags": {
+      "keywords": "Godot, Godot 4, Epic Online Services, EOS, EOSG, EOS SDK, GDExtension, GDScript, Godot multiplayer, Godot plugin, Epic Games, lobbies, leaderboards, achievements, P2P",
+      "author": "Akura Interactive",
+      "robots": "index, follow",
+      "googlebot": "index, follow",
+      "language": "en",
+      "category": "Technology",
+      "theme-color": "#478CBF",
+      "og:site_name": "Epic Online Services Godot",
+      "og:type": "website",
+      "og:locale": "en_US",
+      "twitter:card": "summary_large_image"
+    },
+    "indexing": "navigable"
+  }
 }

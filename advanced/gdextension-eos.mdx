@@ -2,6 +2,11 @@
 title: "GDExtension EOS"
 description: "Learn how the low-level EOS class and IEOS singleton expose the Epic Online Services C SDK inside Godot."
 sidebarTitle: "GDExtension EOS"
+keywords:
+  - "GDExtension"
+  - "IEOS"
+  - "EOS C SDK"
+  - "Godot low level EOS"
 ---
 
 The plugin exposes Epic Online Services through two core pieces: the `EOS` helper class and the `IEOS` singleton. `EOS` is a GDScript `RefCounted` class that organizes every SDK interface into nested namespaces, provides option classes, and adds helper functions for results. `IEOS` is the C++ singleton that actually calls the native SDK and emits callback signals. You will usually call a method on `EOS.SomeInterface` and then `await` the matching signal on `IEOS`.
