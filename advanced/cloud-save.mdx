@@ -1,0 +1,246 @@
+---
+title: "Cloud save (Player Data Storage)"
+sidebarTitle: "Cloud save"
+description: "Save, fetch, list, and delete per-player game save files in the cloud using the Epic Online Services Player Data Storage interface in Godot."
+keywords: ["EOS cloud save", "Player Data Storage", "Godot cloud save", "EOS game save", "save user data", "PlayerDataStorageInterface"]
+---
+
+Epic Online Services **Player Data Storage** lets you store files (game saves, settings, progress) in the cloud for each player. Files are private to the player who owns them and can be read back on any device where that player logs in.
+
+EOSG exposes this through `EOS.PlayerDataStorage.PlayerDataStorageInterface`. There is no High Level EOS wrapper for storage yet, so this page shows how to use the interface directly from GDScript.
+
+## Before you start
+
+<Steps>
+  <Step title="Enable Player Data Storage in the Developer Portal">
+    In the [Epic Developer Portal](https://dev.epicgames.com/portal), open your product and enable **Player Data Storage** for your deployment.
+  </Step>
+  <Step title="Set an encryption key">
+    Player Data Storage files are encrypted on the client. Set `encryption_key` on your `HCredentials` before calling `HPlatform.setup_eos_async`. The key must be a 256-bit key in hexadecimal format (64 hex characters).
+
+    ```gdscript
+    var creds := HCredentials.new()
+    # ... product_id, sandbox_id, deployment_id, client_id, client_secret ...
+    creds.encryption_key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    ```
+
+    <Warning>
+      Use the same encryption key for every build of your game. Files written with one key cannot be read with a different key.
+    </Warning>
+  </Step>
+  <Step title="Log in the player">
+    Log in with [HAuth](/heos/hauth) so the player has a Product User ID. All storage option classes default `local_user_id` to `EOSGRuntime.local_product_user_id`, so you don't need to set it manually.
+  </Step>
+</Steps>
+
+<Note>
+  EOS also caches files locally in `HPlatform.cache_directory` (default `user://eosg-cache`).
+</Note>
+
+## How it works
+
+Every storage call follows the same pattern:
+
+1. Create an options object from `EOS.PlayerDataStorage` (for example `WriteFileOptions`).
+2. Call the matching method on `EOS.PlayerDataStorage.PlayerDataStorageInterface`.
+3. For asynchronous calls, `await` the matching `IEOS.playerdatastorage_interface_*_callback` signal and check `result_code` with `EOS.is_success`.
+
+<Tip>
+  The callback signals are emitted on the global `IEOS` singleton for every file. If you transfer several files at once, compare the `filename` field in each callback to the file you are waiting for.
+</Tip>
+
+## Save a game file
+
+Convert your save data to a `PackedByteArray` and pass it to `write_file`. Data is uploaded in chunks of `chunk_length_bytes` (default `4096`).
+
+```gdscript
+func save_game_async(filename: String, save_data: Dictionary) -> bool:
+    var opts := EOS.PlayerDataStorage.WriteFileOptions.new()
+    opts.filename = filename
+    opts.data = JSON.stringify(save_data).to_utf8_buffer()
+
+    var _request: EOSGFileTransferRequest = EOS.PlayerDataStorage.PlayerDataStorageInterface.write_file(opts)
+
+    var ret: Dictionary
+    while true:
+        ret = await IEOS.playerdatastorage_interface_write_file_callback
+        if ret.filename == filename:
+            break
+
+    if not EOS.is_success(ret.result_code):
+        print("Save failed: %s" % EOS.result_str(ret.result_code))
+        return false
+    return true
+```
+
+## Fetch (load) a game file
+
+`read_file` streams the file back in chunks. Each chunk arrives on `playerdatastorage_interface_read_file_data_callback` as a `PackedByteArray` in `data_chunk`. When the transfer finishes, `playerdatastorage_interface_read_file_callback` fires with the final `result_code`.
+
+```gdscript
+var _read_buffer := PackedByteArray()
+var _reading_filename := ""
+
+func _ready() -> void:
+    IEOS.playerdatastorage_interface_read_file_data_callback.connect(_on_read_file_data)
+
+func _on_read_file_data(data: Dictionary) -> void:
+    if data.filename == _reading_filename:
+        _read_buffer.append_array(data.data_chunk)
+
+func load_game_async(filename: String) -> Variant:
+    _read_buffer = PackedByteArray()
+    _reading_filename = filename
+
+    var opts := EOS.PlayerDataStorage.ReadFileOptions.new()
+    opts.filename = filename
+    var _request: EOSGFileTransferRequest = EOS.PlayerDataStorage.PlayerDataStorageInterface.read_file(opts)
+
+    var ret: Dictionary
+    while true:
+        ret = await IEOS.playerdatastorage_interface_read_file_callback
+        if ret.filename == filename:
+            break
+    _reading_filename = ""
+
+    if ret.result_code == EOS.Result.NotFound:
+        return null # No save yet
+    if not EOS.is_success(ret.result_code):
+        print("Load failed: %s" % EOS.result_str(ret.result_code))
+        return null
+
+    return JSON.parse_string(_read_buffer.get_string_from_utf8())
+```
+
+The read data callback dictionary contains:
+
+<ResponseField name="filename" type="String">
+  Name of the file being read.
+</ResponseField>
+
+<ResponseField name="data_chunk" type="PackedByteArray">
+  The bytes in this chunk.
+</ResponseField>
+
+<ResponseField name="data_chunk_length_bytes" type="int">
+  Size of this chunk.
+</ResponseField>
+
+<ResponseField name="total_file_size_bytes" type="int">
+  Total size of the file.
+</ResponseField>
+
+<ResponseField name="is_last_chunk" type="bool">
+  `true` when this is the final chunk.
+</ResponseField>
+
+<ResponseField name="local_user_id" type="String">
+  Product User ID of the player.
+</ResponseField>
+
+## Track transfer progress
+
+Both reads and writes emit `playerdatastorage_interface_file_transfer_progress_callback` with `filename`, `bytes_transferred`, and `total_file_size_bytes`. Use it to drive a progress bar.
+
+```gdscript
+IEOS.playerdatastorage_interface_file_transfer_progress_callback.connect(func(data):
+    print("%s: %d / %d bytes" % [data.filename, data.bytes_transferred, data.total_file_size_bytes])
+)
+```
+
+## Cancel a transfer
+
+`read_file` and `write_file` return an `EOSGFileTransferRequest`. Keep a reference to it if you want to cancel or inspect the transfer.
+
+| Method | Returns | Description |
+| --- | --- | --- |
+| `cancel_request()` | `int` | Cancels the transfer. Returns an EOS result code. |
+| `get_file_request_state()` | `int` | Current state of the transfer as an EOS result code. |
+| `get_filename()` | `Dictionary` | Name of the file being transferred. |
+
+## List the player's save files
+
+Query the file list first, then read the cached metadata by index.
+
+```gdscript
+func list_saves_async() -> Array:
+    EOS.PlayerDataStorage.PlayerDataStorageInterface.query_file_list(
+        EOS.PlayerDataStorage.QueryFileListOptions.new()
+    )
+    var ret: Dictionary = await IEOS.playerdatastorage_interface_query_file_list_callback
+    if not EOS.is_success(ret.result_code):
+        return []
+
+    var files := []
+    for i in ret.file_count:
+        var opts := EOS.PlayerDataStorage.CopyFileMetadataAtIndexOptions.new()
+        opts.index = i
+        var meta_ret := EOS.PlayerDataStorage.PlayerDataStorageInterface.copy_file_metadata_at_index(opts)
+        if EOS.is_success(meta_ret.result_code):
+            files.append(meta_ret.metadata)
+    return files
+```
+
+To check a single file, call `query_file` with a `QueryFileOptions` (set `filename`), await `playerdatastorage_interface_query_file_callback`, then call `copy_file_metadata_by_filename`.
+
+Each metadata dictionary contains:
+
+<ResponseField name="filename" type="String">
+  Name of the file.
+</ResponseField>
+
+<ResponseField name="file_size_bytes" type="int">
+  Size of the stored (encrypted) file.
+</ResponseField>
+
+<ResponseField name="unencrypted_data_size_bytes" type="int">
+  Size of the original data before encryption.
+</ResponseField>
+
+<ResponseField name="md5_hash" type="String">
+  MD5 hash of the file contents.
+</ResponseField>
+
+<ResponseField name="last_modified_time" type="int">
+  Unix timestamp of the last modification.
+</ResponseField>
+
+## Duplicate, delete, and clear cache
+
+```gdscript
+# Duplicate a save (for example, to create a backup slot)
+var dup := EOS.PlayerDataStorage.DuplicateFileOptions.new()
+dup.source_filename = "save_slot_1.json"
+dup.destination_filename = "save_slot_1_backup.json"
+EOS.PlayerDataStorage.PlayerDataStorageInterface.duplicate_file(dup)
+var dup_ret = await IEOS.playerdatastorage_interface_duplicate_file_callback
+
+# Delete a save
+var del := EOS.PlayerDataStorage.DeleteFileOptions.new()
+del.filename = "save_slot_1_backup.json"
+EOS.PlayerDataStorage.PlayerDataStorageInterface.delete_file(del)
+var del_ret = await IEOS.playerdatastorage_interface_delete_file_callback
+
+# Clear the local file cache for the player
+EOS.PlayerDataStorage.PlayerDataStorageInterface.delete_cache(EOS.PlayerDataStorage.DeleteCacheOptions.new())
+var cache_ret = await IEOS.playerdatastorage_interface_delete_cache_callback
+```
+
+## API reference
+
+| Method | Type | Callback signal |
+| --- | --- | --- |
+| `write_file(WriteFileOptions)` | Async, returns `EOSGFileTransferRequest` | `playerdatastorage_interface_write_file_callback`, `playerdatastorage_interface_write_file_data_callback` |
+| `read_file(ReadFileOptions)` | Async, returns `EOSGFileTransferRequest` | `playerdatastorage_interface_read_file_callback`, `playerdatastorage_interface_read_file_data_callback` |
+| `query_file(QueryFileOptions)` | Async | `playerdatastorage_interface_query_file_callback` |
+| `query_file_list(QueryFileListOptions)` | Async | `playerdatastorage_interface_query_file_list_callback` (includes `file_count`) |
+| `copy_file_metadata_by_filename(CopyFileMetadataByFilenameOptions)` | Sync, returns `{ result_code, metadata }` | |
+| `copy_file_metadata_at_index(CopyFileMetadataAtIndexOptions)` | Sync, returns `{ result_code, metadata }` | |
+| `get_file_metadata_count(GetFileMetadataCountOptions)` | Sync, returns `{ result_code, file_metadata_count }` | |
+| `duplicate_file(DuplicateFileOptions)` | Async | `playerdatastorage_interface_duplicate_file_callback` |
+| `delete_file(DeleteFileOptions)` | Async | `playerdatastorage_interface_delete_file_callback` |
+| `delete_cache(DeleteCacheOptions)` | Async, returns a result code | `playerdatastorage_interface_delete_cache_callback` |
+
+Both `WriteFileOptions.chunk_length_bytes` and `ReadFileOptions.read_chunk_length_bytes` default to `4096`. Every option class accepts an optional `client_data` value that is passed back in the callback.
+
+For limits on file size and count, see the [Player Data Storage documentation](https://dev.epicgames.com/docs/game-services/player-data-storage) from Epic.
